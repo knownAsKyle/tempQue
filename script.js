@@ -1,47 +1,5 @@
 var app = app || {};
 (function() {
-	var worker = new Worker('queueChecker.js');
-	worker.addEventListener('message', function(e) {
-		console.log('Worker said: ', e.data);
-	}, false);
-
-	
-
-	var buttons = document.getElementsByClassName("actionButton");
-	for (var i = 0, len = buttons.length; i < len; i++) {
-		buttons[i].addEventListener("click", handleClick);
-	}
-
-	var action = {};
-	action.sendMail = function() {
-		worker.postMessage('Hello World'); // Send data to our worker.
-		var data = prompt("enter your email");
-		if (data) {
-			app.QueueService.set({
-				"sendTo": data,
-				"cart": [{
-					"cartThing 1": "cartthing1 price"
-				}, {
-					"cartThing 2": "cartthing2 price"
-				}]
-			}, function(data) {
-				alert(data);
-			});
-		}
-
-	};
-	action.getAll = function() {
-		var all = app.QueueService.getAll();
-		console.log(all);
-	};
-
-
-	function handleClick(e) {
-		action[e.target.id]();
-	}
-})();
-
-(function() {
 	var QueueService = function() {
 		this.ls = localStorage;
 		this.key = "dci_mailQue";
@@ -62,6 +20,12 @@ var app = app || {};
 		var allOfIt = this.ls.getItem(key);
 		return (allOfIt ? JSON.parse(allOfIt) : {});
 	};
+
+	p.remove = function(key){
+		var allOfIt = this.getAll(this.key);
+		delete allOfIt[key];
+		this.ls.setItem(this.key, JSON.stringify(allOfIt));
+	}
 
 	// p.remove = function(id, cb) {
 	// 	if (this.queueFile[id]) {
@@ -111,3 +75,47 @@ var app = app || {};
 
 	app.QueueService = new QueueService();
 })();
+(function() {
+	var worker = new Worker('queueChecker.js');
+	worker.addEventListener('message', function(e) {
+		console.log('Worker said: ', e.data);
+		if(e.data.startsWith("-D")){
+			app.QueueService.remove(e.data.substring(2))
+		}
+	}, false);
+	worker.postMessage(app.QueueService.getAll()); 
+	
+
+	var buttons = document.getElementsByClassName("actionButton");
+	for (var i = 0, len = buttons.length; i < len; i++) {
+		buttons[i].addEventListener("click", handleClick);
+	}
+
+	var action = {};
+	action.sendMail = function() {
+		var data = prompt("enter your email");
+		if (data) {
+			app.QueueService.set({
+				"sendTo": data,
+				"cart": [{
+					"cartThing 1": "cartthing1 price"
+				}, {
+					"cartThing 2": "cartthing2 price"
+				}]
+			}, function(data) {
+				alert(data);
+			});
+		}
+
+	};
+	action.getAll = function() {
+		var all = app.QueueService.getAll();
+		console.log(all);
+	};
+
+
+	function handleClick(e) {
+		action[e.target.id]();
+	}
+})();
+
