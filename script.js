@@ -1,121 +1,85 @@
 var app = app || {};
+app.QueueService = app.QueueService || {};
+app.MailService = app.MailService || {};
 (function() {
-	var QueueService = function() {
-		this.ls = localStorage;
-		this.key = "dci_mailQue";
-	};
+    // var worker = new Worker('queueChecker.js');
+    // worker.addEventListener('message', function(e) {
+    // 	console.log('Worker said: ', e.data);
+    // 	if(e.data.startsWith("-D")){
+    // 		app.QueueService.remove(e.data.substring(2))
+    // 	}
+    // }, false);
+    // worker.postMessage(app.QueueService.get()); 
+    var mockData = {
+        "cart": [{
+            "cartThing 1": "cartthing1 price"
+        }, {
+            "cartThing 2": "cartthing2 price"
+        }]
+    };
+    var buttons = document.getElementsByClassName("actionButton");
+    for (var i = 0, len = buttons.length; i < len; i++) {
+        buttons[i].addEventListener("click", handleClick);
+    }
+    var action = {};
+    action.addToQue = function() {
+        var data = prompt("enter your email");
+        if (data) {
+            //Validate Data
+            mockData.sendTo = data;
+            app.QueueService.set(mockData, setResponse);
+        }
 
-	var p = QueueService.prototype;
+        function setResponse(data) {
+            alert(data);
+        }
+    };
+    action.getAll = function() {
+        var all = app.QueueService.get();
+        console.log(all);
+    };
+    action.remove = function() {
+        var data = prompt("enter email");
+        if (data) {
+            app.QueueService.remove(data, res);
+        }
 
-	p.set = function(data, cb) {
-		var key = Math.random().toString(36).slice(2) + "--" + (new Date().toString()).replace(/\s+/g, '');
-		var allOfIt = this.getAll(this.key);
-		allOfIt[key] = data;
-		this.ls.setItem(this.key, JSON.stringify(allOfIt));
-		cb("Limited internet connection - we will send you're email as soon as we connect.  Thanks!");
-	};
+        function res(data) {
+            console.log(data);
+        }
+    }
+    action.removeAll = function() {
+        app.QueueService.removeAll(res);
 
-	p.getAll = function(key) {
-		key = key || this.key;
-		var allOfIt = this.ls.getItem(key);
-		return (allOfIt ? JSON.parse(allOfIt) : {});
-	};
+        function res(data) {
+            console.log(data);
+        }
+    }
+    action.sendMail = function() {
+        var me = this;
+        var mailToSend = app.QueueService.next();
+        if (mailToSend) {
+            // console.log("sending:", mailToSend)
+            app.MailService.send(mailToSend, function(data) {
+                console.log(data, mailToSend);
+                var t = app.QueueService.get(mailToSend).sendTo;
+                console.log(t)
+                if (data) {
+                    app.QueueService.remove(t, function(d) {
+                        if (d) {
+                        	console.log(me)
+                            // me.sendMail();
+                        }
+                    });
+                    // app.QueueService.sendMail(mailToSend, sendMailResponse);
+                }
+            });
+        } else {
+            alert("no more mail in que!")
+        }
+    }
 
-	p.remove = function(key){
-		var allOfIt = this.getAll(this.key);
-		delete allOfIt[key];
-		this.ls.setItem(this.key, JSON.stringify(allOfIt));
-	}
-
-	// p.remove = function(id, cb) {
-	// 	if (this.queueFile[id]) {
-	// 		delete this.queueFile[id];
-	// 	}
-	// 	this.WS.writer(this.queuePath, JSON.stringify(this.queueFile, null, 2), cb);
-	// };
-	// p.get = function(id, cb) {
-	// 	var messageInQueue = this.queueFile[id];
-	// 	if (messageInQueue) {
-	// 		if (cb) {
-	// 			cb(messageInQueue);
-	// 		} else {
-	// 			return messageInQueue;
-	// 		}
-	// 	}
-	// };
-	// /*returns array of keys currently in queue*/
-	// p.getAllKeys = function(cb) {
-	// 	var arrayOfKeys = [];
-	// 	for (var key in this.queueFile) {
-	// 		if (this.queueFile.hasOwnProperty(key)) {
-	// 			arrayOfKeys.push(key);
-	// 		}
-	// 	}
-	// 	if (cb) {
-	// 		cb(arrayOfKeys);
-	// 	} else {
-	// 		return arrayOfKeys;
-	// 	}
-	// };
-	// /*Returns the size of the queue*/
-	// p.size = function(cb) {
-	// 	var size = 0,
-	// 		key;
-	// 	for (key in this.queueFile) {
-	// 		if (this.queueFile.hasOwnProperty(key)) {
-	// 			size++;
-	// 		}
-	// 	}
-	// 	if (cb) {
-	// 		cb(size);
-	// 	} else {
-	// 		return size;
-	// 	}
-	// };
-
-	app.QueueService = new QueueService();
+    function handleClick(e) {
+        action[e.target.id]();
+    }
 })();
-(function() {
-	var worker = new Worker('queueChecker.js');
-	worker.addEventListener('message', function(e) {
-		console.log('Worker said: ', e.data);
-		if(e.data.startsWith("-D")){
-			app.QueueService.remove(e.data.substring(2))
-		}
-	}, false);
-	worker.postMessage(app.QueueService.getAll()); 
-	
-
-	var buttons = document.getElementsByClassName("actionButton");
-	for (var i = 0, len = buttons.length; i < len; i++) {
-		buttons[i].addEventListener("click", handleClick);
-	}
-
-	var action = {};
-	action.sendMail = function() {
-		var data = prompt("enter your email");
-		if (data) {
-			app.QueueService.set({
-				"sendTo": data,
-				"cart": [{
-					"cartThing 1": "cartthing1 price"
-				}, {
-					"cartThing 2": "cartthing2 price"
-				}]
-			}, function(data) {
-				alert(data);
-			});
-		}
-
-	};
-	action.getAll = function() {
-		var all = app.QueueService.getAll();
-		console.log(all);
-	};
-
-
-	function handleClick(e) {
-		action[e.target.id]();
-	}
-})();
-
